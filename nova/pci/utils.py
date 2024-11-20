@@ -162,6 +162,7 @@ def get_ifname_by_pci_address(
     The returned interface name is either the parent PF's or that of the VF
     itself based on the argument of pf_interface.
     """
+    # 获取设备地址
     dev_path = _get_sysfs_netdev_path(pci_addr, pf_interface)
     try:
         dev_info = os.listdir(dev_path)

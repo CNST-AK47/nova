@@ -2217,7 +2217,24 @@ class ComputeManager(manager.Manager):
                      injected_files=None, requested_networks=None,
                      security_groups=None, block_device_mapping=None,
                      node=None, limits=None, host_list=None):
-
+        """
+        创建并构建实例
+        Args:
+            context (_type_): _description_
+            instance (_type_): _description_
+            image (_type_): _description_
+            request_spec (_type_): _description_
+            filter_properties (_type_): _description_
+            accel_uuids (_type_): _description_
+            admin_password (_type_, optional): _description_. Defaults to None.
+            injected_files (_type_, optional): _description_. Defaults to None.
+            requested_networks (_type_, optional): _description_. Defaults to None.
+            security_groups (_type_, optional): _description_. Defaults to None.
+            block_device_mapping (_type_, optional): _description_. Defaults to None.
+            node (_type_, optional): _description_. Defaults to None.
+            limits (_type_, optional): _description_. Defaults to None.
+            host_list (_type_, optional): _description_. Defaults to None.
+        """
         @utils.synchronized(instance.uuid)
         def _locked_do_build_and_run_instance(*args, **kwargs):
             # NOTE(danms): We grab the semaphore with the instance uuid
@@ -2226,6 +2243,7 @@ class ComputeManager(manager.Manager):
             # to do anything with this instance while we wait.
             with self._build_semaphore:
                 try:
+                    # 创建并运行实例
                     result = self._do_build_and_run_instance(*args, **kwargs)
                 except Exception:
                     # NOTE(mriedem): This should really only happen if
@@ -2454,6 +2472,32 @@ class ComputeManager(manager.Manager):
             admin_password, requested_networks, security_groups,
             block_device_mapping, node, limits, filter_properties,
             request_spec=None, accel_uuids=None):
+        """
+        构建并运行实例
+        Args:
+            context (_type_): _description_
+            instance (_type_): _description_
+            image (_type_): _description_
+            injected_files (_type_): _description_
+            admin_password (_type_): _description_
+            requested_networks (_type_): _description_
+            security_groups (_type_): _description_
+            block_device_mapping (_type_): _description_
+            node (_type_): _description_
+            limits (_type_): _description_
+            filter_properties (_type_): _description_
+            request_spec (_type_, optional): _description_. Defaults to None.
+            accel_uuids (_type_, optional): _description_. Defaults to None.
+
+        Raises:
+            exception.BuildAbortException: _description_
+            exception.RescheduledException: _description_
+            exception.BuildAbortException: _description_
+            exception.BuildAbortException: _description_
+            exception.BuildAbortException: _description_
+            exception.RescheduledByPolicyException: _description_
+            exception.RescheduledException: _description_
+        """
 
         image_name = image.get('name')
         self._notify_about_instance_usage(context, instance, 'create.start',
@@ -2518,6 +2562,7 @@ class ComputeManager(manager.Manager):
                     LOG.debug('Start spawning the instance on the hypervisor.',
                               instance=instance)
                     with timeutils.StopWatch() as timer:
+                        # 这里是核心的调用驱动程序的spawn方法
                         self.driver.spawn(context, instance, image_meta,
                                           injected_files, admin_password,
                                           allocs, network_info=network_info,
@@ -4061,6 +4106,14 @@ class ComputeManager(manager.Manager):
     @wrap_instance_fault
     def reboot_instance(self, context, instance, block_device_info,
                         reboot_type):
+        """
+        重启实例
+        Args:
+            context (_type_): _description_
+            instance (_type_): _description_
+            block_device_info (_type_): _description_
+            reboot_type (_type_): _description_
+        """
         @utils.synchronized(instance.uuid)
         def do_reboot_instance(context, instance, block_device_info,
                                reboot_type):
@@ -4084,9 +4137,10 @@ class ComputeManager(manager.Manager):
 
         bdms = objects.BlockDeviceMappingList.get_by_instance_uuid(
             context, instance.uuid)
+        # 查询块设备列表
         block_device_info = self._get_instance_block_device_info(
             context, instance, bdms=bdms)
-
+        # 查询网络设备列表
         network_info = self.network_api.get_instance_nw_info(context, instance)
 
         accel_info = self._get_accel_info(context, instance)
@@ -4128,6 +4182,7 @@ class ComputeManager(manager.Manager):
                 instance.task_state = task_states.REBOOT_STARTED_HARD
                 expected_state = task_states.REBOOT_PENDING_HARD
             instance.save(expected_task_state=expected_state)
+            # 调用重启的virt层方法
             self.driver.reboot(context, instance,
                                network_info,
                                reboot_type,
@@ -11286,6 +11341,7 @@ class _ComputeV5Proxy(object):
                      injected_files=None, requested_networks=None,
                      security_groups=None, block_device_mapping=None,
                      node=None, limits=None, host_list=None, accel_uuids=None):
+        # 调用这里的函数去创建实例
         self.manager.build_and_run_instance(
             context, instance, image, request_spec,
             filter_properties, accel_uuids, admin_password,

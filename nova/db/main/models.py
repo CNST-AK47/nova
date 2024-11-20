@@ -223,7 +223,7 @@ class ComputeNode(BASE, NovaBase, models.SoftDeleteMixin):
     host_ip = sa.Column(types.IPAddress())
     supported_instances = sa.Column(sa.Text)
     metrics = sa.Column(sa.Text)
-
+    # pci数据列表
     # Note(yongli): json string PCI Stats
     # '[{"vendor_id":"8086", "product_id":"1234", "count":3 }, ...]'
     pci_stats = sa.Column(sa.Text)
@@ -240,7 +240,8 @@ class ComputeNode(BASE, NovaBase, models.SoftDeleteMixin):
     numa_topology = sa.Column(sa.Text)
 
     # allocation ratios provided by the RT
-    ram_allocation_ratio = sa.Column(sa.Float, nullable=True)
+    # ram 分配率
+    ram_allocation_ratio = sa.Column(sa.Float, nullable=True) 
     cpu_allocation_ratio = sa.Column(sa.Float, nullable=True)
     disk_allocation_ratio = sa.Column(sa.Float, nullable=True)
     mapped = sa.Column(sa.Integer, nullable=True, default=0)

@@ -31,9 +31,15 @@ LOG = logging.getLogger(__name__)
 CONF = cfg.CONF
 
 LEGACY_VIFS = {
-    model.VIF_TYPE_DVS, model.VIF_TYPE_IOVISOR, model.VIF_TYPE_802_QBG,
-    model.VIF_TYPE_802_QBH, model.VIF_TYPE_HW_VEB, model.VIF_TYPE_HOSTDEV,
-    model.VIF_TYPE_IB_HOSTDEV, model.VIF_TYPE_MIDONET, model.VIF_TYPE_TAP,
+    model.VIF_TYPE_DVS, 
+    model.VIF_TYPE_IOVISOR, 
+    model.VIF_TYPE_802_QBG,
+    model.VIF_TYPE_802_QBH, 
+    model.VIF_TYPE_HW_VEB, 
+    model.VIF_TYPE_HOSTDEV,
+    model.VIF_TYPE_IB_HOSTDEV, 
+    model.VIF_TYPE_MIDONET, 
+    model.VIF_TYPE_TAP,
     model.VIF_TYPE_MACVTAP
 }
 
@@ -280,7 +286,7 @@ def _get_vnic_direct_vif_instance(vif, port_profile, plugin, set_bridge=True):
 
     :returns: an os_vif.objects.vif.VIFHostDevice instance
     """
-
+    # 获取宿主机直通设备
     obj = _get_vif_instance(
         vif,
         objects.vif.VIFHostDevice,
@@ -326,17 +332,23 @@ def _nova_to_osvif_vif_bridge(vif):
 
 # VIF_TYPE_OVS = 'ovs'
 def _nova_to_osvif_vif_ovs(vif):
+    # 获取网卡名称
     vif_name = _get_vif_name(vif)
+    # 获取网卡类型
     vnic_type = vif.get('vnic_type', model.VNIC_TYPE_NORMAL)
+    # 获取属性信息
     profile = objects.vif.VIFPortProfileOpenVSwitch(
         interface_id=vif.get('ovs_interfaceid') or vif['id'],
         datapath_type=vif['details'].get(
             model.VIF_DETAILS_OVS_DATAPATH_TYPE))
+    # 检查是否为直通设备还是vdpa设备
     if vnic_type in (model.VNIC_TYPE_DIRECT, model.VNIC_TYPE_VDPA):
+        # 直通设备直接进行使用即可
         obj = _get_vnic_direct_vif_instance(
             vif,
             port_profile=_get_ovs_representor_port_profile(vif),
             plugin="ovs")
+        # 设置datapath offload信息
         _set_representor_datapath_offload_settings(vif, obj)
     elif vnic_type == model.VNIC_TYPE_REMOTE_MANAGED:
         # A networking backend is responsible for setting up a
@@ -509,7 +521,7 @@ def nova_to_osvif_vif(vif):
     """
 
     LOG.debug("Converting VIF %s", vif)
-
+    # 获取vif类型
     vif_type = vif['type']
 
     if vif_type in LEGACY_VIFS:
@@ -529,10 +541,12 @@ def nova_to_osvif_vif(vif):
         # TODO(stephenfin): We probably want a more meaningful log here
         LOG.debug('No conversion for VIF type %s yet', vif_type)
         return None
-
+    
     if vif_type == model.VIF_TYPE_OVS:
+        # 转换为ovs网卡对象
         vif_obj = _nova_to_osvif_vif_ovs(vif)
     elif vif_type == model.VIF_TYPE_IVS:
+        # 转换为vif对象
         vif_obj = _nova_to_osvif_vif_ivs(vif)
     elif vif_type == model.VIF_TYPE_BRIDGE:
         vif_obj = _nova_to_osvif_vif_bridge(vif)

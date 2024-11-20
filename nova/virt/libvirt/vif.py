@@ -520,10 +520,12 @@ class LibvirtGenericVIFDriver(object):
         """
 
         # Do the config that's common to all vif types
+        # 获取基础的配置
         conf = self.get_base_config(
             instance, vif.address, image_meta, flavor, virt_type, vnic_type)
 
         # Do the VIF type specific config
+        # 根据网卡类型进行转换
         if isinstance(vif, osv_vifs.VIFGeneric):
             self._set_config_VIFGeneric(instance, vif, conf)
         elif isinstance(vif, osv_vifs.VIFBridge):
@@ -571,8 +573,11 @@ class LibvirtGenericVIFDriver(object):
                   "for this vif_driver implementation"))
 
         # Try os-vif codepath first
+        # vif 对象
         vif_obj = os_vif_util.nova_to_osvif_vif(vif)
+        # 直接进行转换
         if vif_obj is not None:
+            # 获取对应的libvirt配置
             return self._get_config_os_vif(
                 instance, vif_obj, image_meta, flavor, virt_type, vnic_type)
 

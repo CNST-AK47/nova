@@ -1649,15 +1649,19 @@ class API:
         """
 
         # Normalize and setup some parameters
+        # 检查资源预留id
         if reservation_id is None:
             reservation_id = utils.generate_uid('r')
+        # 获取对应安全组
         security_groups = security_groups or ['default']
         min_count = min_count or 1
         max_count = max_count or min_count
+        # 获取块设备映射
         block_device_mapping = block_device_mapping or []
         tags = tags or []
 
         if image_href:
+            # 查询镜像信息
             image_id, boot_meta = self._get_image(context, image_href)
         else:
             # This is similar to the logic in _retrieve_trusted_certs_object.
@@ -1669,10 +1673,11 @@ class API:
                         "when booting from volume")
                 raise exception.CertificateValidationFailed(message=msg)
             image_id = None
+            # 查询启动参数--查询包含此镜像的基础信息
             boot_meta = block_device.get_bdm_image_metadata(
                 context, self.image_api, self.volume_api, block_device_mapping,
                 legacy_bdm)
-
+        # 设置参数适配
         self._check_auto_disk_config(image=boot_meta,
                                      auto_disk_config=auto_disk_config)
 
@@ -1691,7 +1696,9 @@ class API:
         # TODO(huaqiang): Remove in Wallaby
         # check nova-compute nodes have been updated to Victoria to support the
         # mixed CPU policy for creating a new instance.
+        # 查询逻辑拓扑
         numa_topology = base_options.get('numa_topology')
+        # 检查是否支持numa拓扑
         self._check_compute_service_for_mixed_instance(numa_topology)
 
         # max_net_count is the maximum number of instances requested by the
@@ -1721,15 +1728,16 @@ class API:
         # to have been merged in order to get the root bdm.
         # Set validate_numa=False since numa validation is already done by
         # _validate_and_build_base_options().
+        # 检查重建单数
         self._checks_for_create_and_rebuild(context, image_id, boot_meta,
                 flavor, metadata, injected_files,
                 block_device_mapping.root_bdm(), validate_numa=False)
 
         instance_group = self._get_requested_instance_group(
             context, filter_properties)
-
+        # 设置标签
         tags = self._create_tag_list_obj(context, tags)
-
+        # 准备需要的实例创建信息列表
         instances_to_build = self._provision_instances(
             context, flavor, min_count, max_count, base_options,
             boot_meta, security_groups, block_device_mapping,
@@ -1743,14 +1751,16 @@ class API:
         build_requests = []
         for rs, build_request, im in instances_to_build:
             build_requests.append(build_request)
+            # 创建新实例
             instance = build_request.get_new_instance(context)
+            # 添加实例
             instances.append(instance)
             # NOTE(sbauza): Add the requested networks so the related scheduler
             # pre-filter can verify them
             if requested_networks is not None:
                 rs.requested_networks = requested_networks
             request_specs.append(rs)
-
+        # 向conductor发布实例双线任务
         self.compute_task_api.schedule_and_build_instances(
             context,
             build_requests=build_requests,
@@ -2185,24 +2195,26 @@ class API:
         Returns a tuple of (instances, reservation_id)
         """
         if requested_networks and max_count is not None and max_count > 1:
+            # 检查是否有足够的IP
             self._check_multiple_instances_with_specified_ip(
                 requested_networks)
+            # 检查neutron是否有足够的端口
             self._check_multiple_instances_with_neutron_ports(
                 requested_networks)
-
+        # 检查hostname是否有多个
         if hostname and max_count is not None and max_count > 1:
             raise exception.AmbiguousHostnameForMultipleInstances()
-
+        # 检查availability_zone是否有多个
         if availability_zone and forced_host is None:
             azs = availability_zones.get_availability_zones(
                 context.elevated(), self.host_api, get_only_available=True)
             if availability_zone not in azs:
                 msg = _('The requested availability zone is not available')
                 raise exception.InvalidRequest(msg)
-
+        # 设置过滤器优先级
         filter_properties = scheduler_utils.build_filter_properties(
             scheduler_hints, forced_host, forced_node, flavor)
-
+        # 创建对应实例
         return self._create_instance(
             context, flavor,
             image_href, kernel_id, ramdisk_id,
@@ -2226,6 +2238,9 @@ class API:
 
     def _check_auto_disk_config(self, instance=None, image=None,
                                 auto_disk_config=None):
+        """
+            自动适配磁盘参数
+        """
         if auto_disk_config is None:
             return
         if not image and not instance:
@@ -2233,6 +2248,7 @@ class API:
 
         if image:
             image_props = image.get("properties", {})
+            # 通过镜像参数进行适配
             auto_disk_config_img = \
                 utils.get_auto_disk_config_from_image_props(image_props)
             image_ref = image.get("id")

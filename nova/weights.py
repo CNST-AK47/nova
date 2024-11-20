@@ -69,7 +69,7 @@ class WeighedObject(object):
 
 class BaseWeigher(metaclass=abc.ABCMeta):
     """Base class for pluggable weighers.
-
+    基础称重器类
     The attributes maxval and minval can be specified to set up the maximum
     and minimum values for the weighed objects. These values will then be
     taken into account in the normalization step, instead of taking the values
@@ -106,7 +106,9 @@ class BaseWeigher(metaclass=abc.ABCMeta):
         """
         # Calculate the weights
         weights = []
+        # 遍历对象列表
         for obj in weighed_obj_list:
+            # 计算权重
             weight = self._weigh_object(obj.obj, weight_properties)
 
             # don't let the weight go beyond the defined max/min
@@ -125,12 +127,14 @@ class BaseWeightHandler(loadables.BaseLoader):
 
     def get_weighed_objects(self, weighers, obj_list, weighing_properties):
         """Return a sorted (descending), normalized list of WeighedObjects."""
+        # 进行对象转换
         weighed_objs = [self.object_class(obj, 0.0) for obj in obj_list]
 
         if len(weighed_objs) <= 1:
             return weighed_objs
 
         for weigher in weighers:
+            # 计算对象权重
             weights = weigher.weigh_objects(weighed_objs, weighing_properties)
 
             LOG.debug(
@@ -141,6 +145,8 @@ class BaseWeightHandler(loadables.BaseLoader):
             )
 
             # Normalize the weights
+            # 将权重进行归一化--为每个宿主机资源对象设置最大最小值，然后进行归一化
+            # 保证每个权重值都在0-1之间
             weights = list(
                 normalize(
                     weights, minval=weigher.minval, maxval=weigher.maxval))
@@ -156,6 +162,7 @@ class BaseWeightHandler(loadables.BaseLoader):
 
             for i, weight in enumerate(weights):
                 obj = weighed_objs[i]
+                # 获取权重
                 multiplier = weigher.weight_multiplier(obj.obj)
                 weigher_score = multiplier * weight
                 obj.weight += weigher_score
@@ -168,5 +175,5 @@ class BaseWeightHandler(loadables.BaseLoader):
                 weigher.__class__.__name__,
                 {name: log for name, log in log_data.items()}
             )
-
+        # 进行权重排序
         return sorted(weighed_objs, key=lambda x: x.weight, reverse=True)

@@ -167,7 +167,8 @@ class Middleware(Application):
 
 class Router(object):
     """WSGI middleware that maps incoming requests to WSGI apps."""
-
+    """WSGI 中间件，映射入请求到wsgi app  
+    """
     def __init__(self, mapper):
         """Create a router for the given routes.Mapper.
 
@@ -192,7 +193,9 @@ class Router(object):
           mapper.connect(None, '/v1.0/{path_info:.*}', controller=BlogApp())
 
         """
+        # 创建路由mapper
         self.map = mapper
+        # 使用路由中间件设置路由
         self._router = routes.middleware.RoutesMiddleware(self._dispatch,
                                                           self.map)
 

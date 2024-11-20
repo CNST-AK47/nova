@@ -978,6 +978,11 @@ class RequestSpec(base.NovaObject):
 
 @base.NovaObjectRegistry.register
 class Destination(base.NovaObject):
+    """
+    资源过滤目标结构体，用于记录基础的资源过滤请求信息
+    Args:
+        base (_type_): _description_
+    """
     # Version 1.0: Initial version
     # Version 1.1: Add cell field
     # Version 1.2: Add aggregates field
@@ -986,24 +991,29 @@ class Destination(base.NovaObject):
     VERSION = '1.4'
 
     fields = {
-        'host': fields.StringField(),
+        # 目标主机列表
+        'host': fields.StringField(), 
         # NOTE(sbauza): Given we want to split the host/node relationship later
         # and also remove the possibility to have multiple nodes per service,
         # let's provide a possible nullable node here.
+        # node信息
         'node': fields.StringField(nullable=True),
         'cell': fields.ObjectField('CellMapping', nullable=True),
 
         # NOTE(dansmith): These are required aggregates (or sets) and
         # are passed to placement.  See require_aggregates() below.
+        # 需要的资源聚合列表
         'aggregates': fields.ListOfStringsField(nullable=True,
                                                 default=None),
         # NOTE(mriedem): allow_cross_cell_move defaults to False so that the
         # scheduler by default selects hosts from the cell specified in the
         # cell field.
+        #是否允许所有的cell
         'allow_cross_cell_move': fields.BooleanField(default=False),
         # NOTE(vrushali): These are forbidden aggregates passed to placement as
         # query params to the allocation candidates API. Nova uses this field
         # to implement the isolate_aggregates request filter.
+        # 被禁止的聚合列表
         'forbidden_aggregates': fields.SetOfStringsField(nullable=True,
                                                          default=None),
     }

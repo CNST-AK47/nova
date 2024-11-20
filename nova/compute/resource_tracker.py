@@ -720,16 +720,20 @@ class ResourceTracker(object):
 
         If this method has to create a compute node it needs initial
         values - these come from resources.
+        
+        计算节点初始化与采集相关资源数据
 
         :param context: security context
         :param resources: initial values
         :returns: True if a new compute_nodes table record was created,
             False otherwise
         """
+        # 查询当前主机名称
         nodename = resources['hypervisor_hostname']
 
         # if there is already a compute node just use resources
         # to initialize
+        # 当前节点已经初始化，进行资源复制和采集即可
         if nodename in self.compute_nodes:
             cn = self.compute_nodes[nodename]
             self._copy_resources(cn, resources)
@@ -738,6 +742,7 @@ class ResourceTracker(object):
 
         # now try to get the compute node record from the
         # database. If we get one we use resources to initialize
+        # 尝试获取当前节点记录
         cn = self._get_compute_node(context, nodename)
         if cn:
             self.compute_nodes[nodename] = cn
@@ -882,6 +887,7 @@ class ResourceTracker(object):
                   "%(host)s (node: %(node)s)",
                  {'node': nodename,
                   'host': self.host})
+        # 查询当前可用资源
         resources = self.driver.get_available_resource(nodename)
         # NOTE(jaypipes): The resources['hypervisor_hostname'] field now
         # contains a non-None value, even for non-Ironic nova-compute hosts. It
@@ -893,11 +899,11 @@ class ResourceTracker(object):
         # just force it to empty string
         if "cpu_info" not in resources or resources["cpu_info"] is None:
             resources["cpu_info"] = ''
-
+        # 校验CPU信息
         self._verify_resources(resources)
-
+        # 校验host驱动信息
         self._report_hypervisor_resource_view(resources)
-
+        # 登记空闲资源
         self._update_available_resource(context, resources, startup=startup)
 
     def _pair_instances_to_migrations(self, migrations, instance_by_uuid):
@@ -1300,6 +1306,7 @@ class ResourceTracker(object):
             # update_provider_tree_for_pci did reshape, then we need to pass
             # allocs to update_from_provider_tree to hit placement's POST
             # /reshaper route.
+            # 更新供应商资源信息
             self.reportclient.update_from_provider_tree(
                 context,
                 prov_tree,

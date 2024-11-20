@@ -1474,6 +1474,25 @@ class ComputeAPI(object):
             block_device_mapping=None, node=None, limits=None,
             host_list=None, accel_uuids=None):
         # NOTE(edleafe): compute nodes can only use the dict form of limits.
+        """
+        完成调度后，通过此函数构建实例
+        Args:
+            ctxt (_type_): _description_
+            instance (_type_): _description_
+            host (_type_): _description_
+            image (_type_): _description_
+            request_spec (_type_): _description_
+            filter_properties (_type_): _description_
+            admin_password (_type_, optional): _description_. Defaults to None.
+            injected_files (_type_, optional): _description_. Defaults to None.
+            requested_networks (_type_, optional): _description_. Defaults to None.
+            security_groups (_type_, optional): _description_. Defaults to None.
+            block_device_mapping (_type_, optional): _description_. Defaults to None.
+            node (_type_, optional): _description_. Defaults to None.
+            limits (_type_, optional): _description_. Defaults to None.
+            host_list (_type_, optional): _description_. Defaults to None.
+            accel_uuids (_type_, optional): _description_. Defaults to None.
+        """
         if isinstance(limits, objects.SchedulerLimits):
             limits = limits.to_dict()
         kwargs = {"instance": instance,

@@ -276,9 +276,16 @@ class ConfigDrivePolicy(BaseNovaEnum):
 
 
 class CPUAllocationPolicy(BaseNovaEnum):
-
+    """
+    CPU 分配策略枚举
+    Args:
+        BaseNovaEnum (_type_): _description_
+    """
+    # 专用
     DEDICATED = "dedicated"
+    # 共享
     SHARED = "shared"
+    # 混合
     MIXED = "mixed"
 
     ALL = (DEDICATED, SHARED, MIXED)
@@ -785,10 +792,19 @@ class PciDeviceType(BaseNovaEnum):
 
 
 class PCINUMAAffinityPolicy(BaseNovaEnum):
-
-    REQUIRED = "required"
+    """
+    PCI numa affinity policy.
+    Args:
+        BaseNovaEnum (_type_): numa 亲和策略值设定
+    @see: https://docs.openstack.org/nova/yoga/admin/pci-passthrough.html
+    """
+    # 必须在同一个node节点上
+    REQUIRED = "required" 
+    # 默认策略，不亲和
     LEGACY = "legacy"
+    # 尽量亲和，尽量保证numa亲和性
     PREFERRED = "preferred"
+    # 必须在同一个socket上
     SOCKET = "socket"
 
     ALL = (REQUIRED, LEGACY, PREFERRED, SOCKET)

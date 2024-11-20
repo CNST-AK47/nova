@@ -709,6 +709,7 @@ class ControllerMetaclass(type):
 
     This metaclass automates the task of assembling a dictionary
     mapping action keys to method names.
+    controller 基础组件
     """
 
     def __new__(mcs, name, bases, cls_dict):
@@ -742,13 +743,22 @@ class ControllerMetaclass(type):
         cls_dict['wsgi_actions'] = actions
         if versioned_methods:
             cls_dict[VER_METHOD_ATTR] = versioned_methods
-
+        # 进行初始化
         return super(ControllerMetaclass, mcs).__new__(mcs, name, bases,
                                                        cls_dict)
 
 
 class Controller(metaclass=ControllerMetaclass):
     """Default controller."""
+    """
+    默认资源控制器封装
+    Raises:
+        exception.VersionNotFoundForAPIMethod: _description_
+        exception.ApiVersionsIntersect: _description_
+
+    Returns:
+        _type_: _description_
+    """
 
     _view_builder_class = None
 
@@ -760,6 +770,11 @@ class Controller(metaclass=ControllerMetaclass):
             self._view_builder = None
 
     def __getattribute__(self, key):
+        """属性拦截查询器
+
+        Args:
+            key (_type_): _description_
+        """
 
         def version_select(*args, **kwargs):
             """Look for the method which matches the name supplied and version

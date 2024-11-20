@@ -333,12 +333,15 @@ class HostManager(object):
     def __init__(self):
         self.refresh_cells_caches()
         self.filter_handler = filters.HostFilterHandler()
+        # 加载配置过滤项
         filter_classes = self.filter_handler.get_matching_classes(
                 CONF.filter_scheduler.available_filters)
         self.filter_cls_map = {cls.__name__: cls for cls in filter_classes}
         self.filter_obj_map = {}
+        # 获取最终的filter列表
         self.enabled_filters = self._choose_host_filters(self._load_filters())
         self.weight_handler = weights.HostWeightHandler()
+        # 加载称重过滤项
         weigher_classes = self.weight_handler.get_matching_classes(
                 CONF.filter_scheduler.weight_classes)
         self.weighers = [cls() for cls in weigher_classes]
@@ -597,8 +600,9 @@ class HostManager(object):
                 else:
                     return []
             hosts = name_to_cls_map.values()
-
-        return self.filter_handler.get_filtered_objects(self.enabled_filters,
+        # 进行过滤
+        return self.filter_handler.get_filtered_objects(
+            self.enabled_filters,
                 hosts, spec_obj, index)
 
     def get_weighed_hosts(self, hosts, spec_obj):
@@ -623,11 +627,14 @@ class HostManager(object):
         """
 
         def targeted_operation(cctxt):
+            # 查询服务列表
             services = objects.ServiceList.get_by_binary(
                 cctxt, 'nova-compute', include_disabled=True)
             if compute_uuids is None:
+                # 查询所有主机
                 return services, objects.ComputeNodeList.get_all(cctxt)
             else:
+                # 查询指定主机uid
                 return services, objects.ComputeNodeList.get_all_by_uuids(
                     cctxt, compute_uuids)
 
@@ -712,9 +719,13 @@ class HostManager(object):
         return nodes
 
     def refresh_cells_caches(self):
+        """
+        刷新cell的缓存
+        """
         # NOTE(tssurya): This function is called from the scheduler manager's
         # reset signal handler and also upon startup of the scheduler.
         context = context_module.get_admin_context()
+        # 根据上下文获取temp_cell
         temp_cells = objects.CellMappingList.get_all(context)
         # NOTE(tssurya): filtering cell0 from the list since it need
         # not be considered for scheduling.
@@ -726,6 +737,7 @@ class HostManager(object):
         # NOTE(danms, tssurya): global dict, keyed by cell uuid, of cells
         # cached which will be refreshed every time a SIGHUP is sent to the
         # scheduler.
+        # 更新cells
         self.cells = {cell.uuid: cell for cell in temp_cells}
         LOG.debug('Found %(count)i cells: %(cells)s',
                   {'count': len(self.cells),
@@ -766,7 +778,7 @@ class HostManager(object):
             cells = [only_cell]
         else:
             cells = self.enabled_cells
-
+        # 查询所有计算节点
         compute_nodes, services = self._get_computes_for_cells(
             context, cells, compute_uuids=compute_uuids)
         return self._get_host_states(context, compute_nodes, services)

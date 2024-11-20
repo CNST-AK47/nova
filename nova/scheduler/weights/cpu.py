@@ -34,12 +34,14 @@ class CPUWeigher(weights.BaseHostWeigher):
 
     def weight_multiplier(self, host_state):
         """Override the weight multiplier."""
+        # 返回权重
         return utils.get_weight_multiplier(
             host_state, 'cpu_weight_multiplier',
             CONF.filter_scheduler.cpu_weight_multiplier)
 
     def _weigh_object(self, host_state, weight_properties):
         """Higher weights win.  We want spreading to be the default."""
+        # 返回打分值
         vcpus_free = (
             host_state.vcpus_total * host_state.cpu_allocation_ratio -
             host_state.vcpus_used)

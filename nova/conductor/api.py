@@ -131,6 +131,20 @@ class ComputeTaskAPI(object):
                                      admin_password, injected_files,
                                      requested_networks, block_device_mapping,
                                      tags=None):
+        """
+        调度并创建实例
+        Args:
+            context (_type_): _description_
+            build_requests (_type_): _description_
+            request_spec (_type_): _description_
+            image (_type_): _description_
+            admin_password (_type_): _description_
+            injected_files (_type_): _description_
+            requested_networks (_type_): _description_
+            block_device_mapping (_type_): _description_
+            tags (_type_, optional): _description_. Defaults to None.
+        """
+        # 这里是调用manager 函数
         self.conductor_compute_rpcapi.schedule_and_build_instances(
             context, build_requests, request_spec, image,
             admin_password, injected_files, requested_networks,

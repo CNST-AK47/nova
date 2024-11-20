@@ -842,7 +842,8 @@ ROUTE_LIST = (
     }),
 )
 
-
+# v2版本的核心路由
+# 封装了base_wsgi.Router
 class APIRouterV21(base_wsgi.Router):
     """Routes requests on the OpenStack API to the appropriate controller
     and method. The URL mapping based on the plain list `ROUTE_LIST` is built
@@ -858,7 +859,7 @@ class APIRouterV21(base_wsgi.Router):
 
         if custom_routes is None:
             custom_routes = tuple()
-
+        # 从route list中查找接口并创建路由
         for path, methods in ROUTE_LIST + custom_routes:
             # NOTE(alex_xu): The variable 'methods' is a dict in normal, since
             # the dict includes all the methods supported in the path. But

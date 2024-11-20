@@ -903,6 +903,7 @@ class LibvirtDriver(driver.ComputeDriver):
                 LOG.exception(f'Ignoring unknown failure while attempting '
                               f'to find the default of {image_prop}',
                               instance=instance)
+        # 进行存储
         instance.save()
 
     def _find_default_for_image_property(
@@ -3832,7 +3833,7 @@ class LibvirtDriver(driver.ComputeDriver):
 
     def _soft_reboot(self, instance):
         """Attempt to shutdown and restart the instance gracefully.
-
+        尝试进行软重启
         We use shutdown and create here so we can return if the guest
         responded and actually rebooted. Note that this method only
         succeeds if the guest responds to acpi. Therefore we return
@@ -4320,10 +4321,29 @@ class LibvirtDriver(driver.ComputeDriver):
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password, allocations, network_info=None,
               block_device_info=None, power_on=True, accel_info=None):
+        """
+        核心的实例创建函数
+        Args:
+            context (_type_): _description_
+            instance (_type_): _description_
+            image_meta (_type_): _description_
+            injected_files (_type_): _description_
+            admin_password (_type_): _description_
+            allocations (_type_): _description_
+            network_info (_type_, optional): _description_. Defaults to None.
+            block_device_info (_type_, optional): _description_. Defaults to None.
+            power_on (bool, optional): _description_. Defaults to True.
+            accel_info (_type_, optional): _description_. Defaults to None.
+
+        Raises:
+            loopingcall.LoopingCallDone: _description_
+        """
+        # 获取实例磁盘信息
         disk_info = blockinfo.get_disk_info(CONF.libvirt.virt_type,
                                             instance,
                                             image_meta,
                                             block_device_info)
+        # 获取网络信息
         injection_info = InjectionInfo(network_info=network_info,
                                        files=injected_files,
                                        admin_pass=admin_password)
@@ -4339,6 +4359,7 @@ class LibvirtDriver(driver.ComputeDriver):
         self._ensure_console_log_for_instance(instance)
 
         # Does the guest need to be assigned some vGPU mediated devices ?
+        # 获取图像设备
         mdevs = self._allocate_mdevs(allocations)
 
         # If the guest needs a vTPM, _get_guest_xml needs its secret to exist
@@ -4352,11 +4373,12 @@ class LibvirtDriver(driver.ComputeDriver):
                 # as we'll perform a redundant key manager API call later when
                 # we create the domain but the alternative is an ugly mess
                 crypto.ensure_vtpm_secret(context, instance)
-
+        # 创建xml
         xml = self._get_guest_xml(context, instance, network_info,
                                   disk_info, image_meta,
                                   block_device_info=block_device_info,
                                   mdevs=mdevs, accel_info=accel_info)
+        # 创建网络
         self._create_guest_with_network(
             context, xml, instance, network_info, block_device_info,
             post_xml_callback=gen_confdrive,
@@ -4364,7 +4386,7 @@ class LibvirtDriver(driver.ComputeDriver):
             cleanup_instance_dir=created_instance_dir,
             cleanup_instance_disks=created_disks)
         LOG.debug("Guest created on hypervisor", instance=instance)
-
+        # 等待虚拟机启动
         def _wait_for_boot():
             """Called at an interval until the VM is running."""
             state = self.get_info(instance).state
@@ -4372,7 +4394,7 @@ class LibvirtDriver(driver.ComputeDriver):
             if state == power_state.RUNNING:
                 LOG.info("Instance spawned successfully.", instance=instance)
                 raise loopingcall.LoopingCallDone()
-
+        # 等待虚拟机启动完成
         if power_on:
             timer = loopingcall.FixedIntervalLoopingCall(_wait_for_boot)
             timer.start(interval=0.5).wait()
@@ -5952,10 +5974,11 @@ class LibvirtDriver(driver.ComputeDriver):
         shared_cpus = None
         if CONF.vcpu_pin_set or CONF.compute.cpu_shared_set:
             shared_cpus = self._get_vcpu_available()
-
+        # 获取宿主机numa拓扑
         topology = self._get_host_numa_topology()
 
         # We have instance NUMA so translate it to the config class
+        # 获取实例numa配置
         guest_cpu_numa_config = self._get_cpu_numa_config_from_instance(
                 instance_numa_topology,
                 self._wants_hugepages(topology, instance_numa_topology))
@@ -6166,6 +6189,7 @@ class LibvirtDriver(driver.ComputeDriver):
             hv.frequencies = True
             hv.tlbflush = True
             hv.ipi = True
+            hv.evmcs = True
 
             # NOTE(kosamara): Spoofing the vendor_id aims to allow the nvidia
             # driver to work on windows VMs. At the moment, the nvidia driver
@@ -6932,8 +6956,9 @@ class LibvirtDriver(driver.ComputeDriver):
     def _get_guest_config(self, instance, network_info, image_meta,
                           disk_info, rescue=None, block_device_info=None,
                           context=None, mdevs=None, accel_info=None):
+        
         """Get config data for parameters.
-
+        获取xml配置
         :param rescue: optional dictionary that should contain the key
             'ramdisk_id' if a ramdisk is needed for the rescue image and
             'kernel_id' if a kernel is needed for the rescue image.
@@ -6953,11 +6978,12 @@ class LibvirtDriver(driver.ComputeDriver):
         # We are using default unit for memory: KiB
         guest.memory = flavor.memory_mb * units.Ki
         guest.vcpus = flavor.vcpus
-
+        # 设置numa配置
         guest_numa_config = self._get_guest_numa_config(
             instance.numa_topology, flavor, image_meta)
-
+        # 设置cpuset
         guest.cpuset = guest_numa_config.cpuset
+        # 设置cputune 
         guest.cputune = guest_numa_config.cputune
         guest.numatune = guest_numa_config.numatune
 
@@ -7011,21 +7037,24 @@ class LibvirtDriver(driver.ComputeDriver):
                 flavor, guest.os_type)
         for config in storage_configs:
             guest.add_device(config)
-
+        # 设置网卡
         for vif in network_info:
             config = self.vif_driver.get_config(
                 instance, vif, image_meta, flavor, CONF.libvirt.virt_type,
             )
+            # 设置网卡
             guest.add_device(config)
-
+        # 设置控制台
         self._create_consoles(guest, instance, flavor, image_meta)
-
+        # 设置channel 
         self._guest_add_spice_channel(guest)
-
+        # 设置图像设备
         if self._guest_add_video_device(guest):
+            # 设置图像驱动
             self._add_video_driver(guest, image_meta, flavor)
-
+            # 添加鼠标设备
             self._guest_add_pointer_device(guest, image_meta)
+            # 添加键盘设备
             self._guest_add_keyboard_device(guest, image_meta)
 
         # Some features are only supported 'qemu' and 'kvm' hypervisor
@@ -7038,7 +7067,7 @@ class LibvirtDriver(driver.ComputeDriver):
             self._guest_add_pcie_root_ports(guest)
 
         self._guest_add_usb_root_controller(guest, image_meta)
-
+        # 添加pci设备   
         self._guest_add_pci_devices(guest, instance)
 
         pci_arq_list = []
@@ -7059,7 +7088,7 @@ class LibvirtDriver(driver.ComputeDriver):
                          'But got these unsupported types: %s.',
                          instance.uuid, supported_types_set,
                          ah_types_set.difference(supported_types_set))
-
+        # 设置pci设备
         self._guest_add_accel_pci_devices(guest, pci_arq_list)
 
         self._guest_add_watchdog_action(guest, flavor, image_meta)
@@ -7076,7 +7105,7 @@ class LibvirtDriver(driver.ComputeDriver):
 
         if vpmems:
             self._guest_add_vpmems(guest, vpmems)
-
+        # 设置iommu设备
         self._guest_add_iommu_device(guest, image_meta, flavor)
 
         return guest

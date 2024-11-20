@@ -132,6 +132,7 @@ class Host(object):
         self._read_only = read_only
         self._initial_connection = True
         self._conn_event_handler = conn_event_handler
+        # 待处理事件队列
         self._conn_event_handler_queue: queue.Queue[ty.Callable] = (
           queue.Queue())
         self._lifecycle_event_handler = lifecycle_event_handler
@@ -311,6 +312,7 @@ class Host(object):
             transition = virtevent.EVENT_LIFECYCLE_RESUMED
 
         if transition is not None:
+            # 发送队列事件
             self._queue_event(virtevent.LifecycleEvent(uuid, transition))
 
     def _close_callback(self, conn, reason, opaque):
@@ -508,8 +510,10 @@ class Host(object):
             wrapped_conn.domainEventRegisterAny(
                 None,
                 libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE,
-                self._event_lifecycle_callback,
+                # 设置生命周期事件回调函数
+                self._event_lifecycle_callback, 
                 self)
+            # 注册设备移除事件回调函数
             wrapped_conn.domainEventRegisterAny(
                 None,
                 libvirt.VIR_DOMAIN_EVENT_ID_DEVICE_REMOVED,
@@ -557,6 +561,7 @@ class Host(object):
             if self._wrapped_conn is None:
                 try:
                     # This will raise if it fails to get a connection
+                    # 创建一个新的本地连接
                     self._wrapped_conn = self._get_new_connection()
                 except Exception as ex:
                     with excutils.save_and_reraise_exception():
@@ -684,6 +689,7 @@ class Host(object):
         :raises exception.InternalError: A libvirt error occurred
         """
         try:
+            # 获取当前连接
             conn = self.get_connection()
             return conn.lookupByUUIDString(instance.uuid)
         except libvirt.libvirtError as ex:
@@ -779,10 +785,11 @@ class Host(object):
         """
         if self._caps:
             return self._caps
-
+        # @see； https://libvirt-python.readthedocs.io/capabilities/
         xmlstr = self.get_connection().getCapabilities()
         self._log_host_capabilities(xmlstr)
         self._caps = vconfig.LibvirtConfigCaps()
+        # parse the xml string
         self._caps.parse_str(xmlstr)
 
         # NOTE(mriedem): Don't attempt to get baseline CPU features

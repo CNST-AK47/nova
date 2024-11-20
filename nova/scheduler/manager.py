@@ -67,7 +67,7 @@ class SchedulerManager(manager.Manager):
         self.servicegroup_api = servicegroup.API()
         self.notifier = rpc.get_notifier('scheduler')
         self.placement_client = report.report_client_singleton()
-
+        # 初始化rpc服务
         super().__init__(service_name='scheduler', *args, **kwargs)
 
     @periodic_task.periodic_task(
@@ -116,6 +116,7 @@ class SchedulerManager(manager.Manager):
         filter_properties=None, spec_obj=_sentinel, instance_uuids=None,
         return_objects=False, return_alternates=False,
     ):
+        """核心的数据过滤函数，用于过滤目标host"""
         """Returns destinations(s) best suited for this RequestSpec.
 
         Starting in Queens, this method returns a list of lists of Selection
@@ -145,19 +146,22 @@ class SchedulerManager(manager.Manager):
         if spec_obj is self._sentinel:
             spec_obj = objects.RequestSpec.from_primitives(
                 context, request_spec, filter_properties)
-
+        # 检查是否为重建--重建需要特殊处理
         is_rebuild = utils.request_is_rebuild(spec_obj)
         alloc_reqs_by_rp_uuid, provider_summaries, allocation_request_version \
             = None, None, None
         if not is_rebuild:
+            # 非重建，直接走正常的
             try:
+                # 进行资源过滤
                 request_filter.process_reqspec(context, spec_obj)
             except exception.RequestFilterFailed as e:
                 raise exception.NoValidHost(reason=e.message)
-
+            # 将实例请求转换为标准的资源请求
             resources = utils.resources_from_request_spec(
                 context, spec_obj, self.host_manager,
                 enable_pinning_translate=True)
+            # 获取分配候选对象
             res = self.placement_client.get_allocation_candidates(
                 context, resources)
             if res is None:
@@ -165,7 +169,7 @@ class SchedulerManager(manager.Manager):
                 # Placement service and the safe_connect decorator on
                 # get_allocation_candidates returns None.
                 res = None, None, None
-
+            # 获取对应的基础资源
             alloc_reqs, provider_summaries, allocation_request_version = res
             alloc_reqs = alloc_reqs or []
             provider_summaries = provider_summaries or {}
@@ -190,6 +194,7 @@ class SchedulerManager(manager.Manager):
                 resources = utils.resources_from_request_spec(
                     context, spec_obj, self.host_manager,
                     enable_pinning_translate=False)
+                # 查找拥有这些资源的宿主机
                 res = self.placement_client.get_allocation_candidates(
                     context, resources)
                 if res:
@@ -198,6 +203,7 @@ class SchedulerManager(manager.Manager):
                     alloc_reqs_fallback, provider_summaries_fallback, _ = res
 
                     alloc_reqs.extend(alloc_reqs_fallback)
+                    # 求取交集
                     provider_summaries.update(provider_summaries_fallback)
 
             if not alloc_reqs:
@@ -219,7 +225,7 @@ class SchedulerManager(manager.Manager):
         # Only return alternates if both return_objects and return_alternates
         # are True.
         return_alternates = return_alternates and return_objects
-
+        # 进行资源过滤与筛选，进行基础调度
         selections = self._select_destinations(
             context, spec_obj, instance_uuids, alloc_reqs_by_rp_uuid,
             provider_summaries, allocation_request_version, return_alternates)
@@ -237,9 +243,11 @@ class SchedulerManager(manager.Manager):
         alloc_reqs_by_rp_uuid, provider_summaries,
         allocation_request_version=None, return_alternates=False,
     ):
+        # 发送消息通知
         self.notifier.info(
             context, 'scheduler.select_destinations.start',
             {'request_spec': spec_obj.to_legacy_request_spec_dict()})
+        # 发送通知
         compute_utils.notify_about_scheduler_action(
             context=context, request_spec=spec_obj,
             action=fields_obj.NotificationAction.SELECT_DESTINATIONS,
@@ -247,6 +255,7 @@ class SchedulerManager(manager.Manager):
 
         # Only return alternates if both return_objects and return_alternates
         # are True.
+        # 如果是重建，就不需要alternates
         selections = self._schedule(
             context, spec_obj, instance_uuids,
             alloc_reqs_by_rp_uuid, provider_summaries,
@@ -302,6 +311,7 @@ class SchedulerManager(manager.Manager):
         # Note: remember, we are using a generator-iterator here. So only
         # traverse this list once. This can bite you if the hosts
         # are being scanned in a filter or weighing function.
+        # 查询主机列表
         hosts = self._get_all_host_states(
             elevated, spec_obj, provider_summaries)
 
@@ -356,7 +366,7 @@ class SchedulerManager(manager.Manager):
             spec_obj.instance_uuid = instance_uuid
             # Reset the field so it's not persisted accidentally.
             spec_obj.obj_reset_changes(['instance_uuid'])
-
+            # 进行排序
             hosts = self._get_sorted_hosts(spec_obj, hosts, num)
             if not hosts:
                 # NOTE(jaypipes): If we get here, that means not all instances
@@ -604,6 +614,7 @@ class SchedulerManager(manager.Manager):
         scheduling constraints for the request spec object and have been sorted
         according to the weighers.
         """
+        # 进行过滤
         filtered_hosts = self.host_manager.get_filtered_hosts(host_states,
             spec_obj, index)
 
@@ -611,7 +622,7 @@ class SchedulerManager(manager.Manager):
 
         if not filtered_hosts:
             return []
-
+        # 进行称重
         weighed_hosts = self.host_manager.get_weighed_hosts(
             filtered_hosts, spec_obj)
         if CONF.filter_scheduler.shuffle_best_same_weighed_hosts:
@@ -656,6 +667,7 @@ class SchedulerManager(manager.Manager):
         compute_uuids = None
         if provider_summaries is not None:
             compute_uuids = list(provider_summaries.keys())
+        # 查询计算节点列表
         return self.host_manager.get_host_states_by_uuids(
             context, compute_uuids, spec_obj)
 

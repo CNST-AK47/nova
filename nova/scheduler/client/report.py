@@ -308,7 +308,7 @@ class SchedulerReportClient(object):
     def get_allocation_candidates(self, context, resources):
         """Returns a tuple of (allocation_requests, provider_summaries,
         allocation_request_version).
-
+        
         The allocation_requests are a collection of potential JSON objects that
         can be passed to the PUT /allocations/{consumer_uuid} Placement REST
         API to claim resources against one or more resource providers that meet

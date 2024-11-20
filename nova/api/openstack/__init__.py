@@ -145,6 +145,11 @@ class LegacyV2CompatibleWrapper(base_wsgi.Middleware):
 
 
 class APIMapper(routes.Mapper):
+    """api 路由映射期
+
+    Args:
+        routes (_type_): _description_
+    """
     def routematch(self, url=None, environ=None):
         if url == "":
             result = self._match("", environ)

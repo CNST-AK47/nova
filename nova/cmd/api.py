@@ -41,6 +41,7 @@ remote_debug.register_cli_opts(CONF)
 def main():
     config.parse_args(sys.argv)
     logging.setup(CONF, "nova")
+    # 注册所有对象
     objects.register_all()
     gmr_opts.set_defaults(CONF)
     if 'osapi_compute' in CONF.enabled_apis:
@@ -50,13 +51,15 @@ def main():
     log = logging.getLogger(__name__)
 
     gmr.TextGuruMeditation.setup_autorun(version, conf=CONF)
-
+    # 创建喜欢函数加载器，
     launcher = service.process_launcher()
     started = 0
     for api in CONF.enabled_apis:
         should_use_ssl = api in CONF.enabled_ssl_apis
         try:
+            # 创建wsgifu 服务
             server = service.WSGIService(api, use_ssl=should_use_ssl)
+            # 加载服务线程，会调用service的start函数
             launcher.launch_service(server, workers=server.workers or 1)
             started += 1
         except exception.PasteAppNotFound as ex:

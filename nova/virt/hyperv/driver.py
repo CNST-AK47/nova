@@ -196,6 +196,14 @@ class HyperVDriver(driver.ComputeDriver):
         return self._volumeops.get_volume_connector()
 
     def get_available_resource(self, nodename):
+        """
+        查询可用的资源
+        Args:
+            nodename (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
         return self._hostops.get_available_resource()
 
     def get_available_nodes(self, refresh=False):

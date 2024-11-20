@@ -38,6 +38,7 @@ class SchedulerQueryClient(object):
         represent alternate hosts. The number of alternates returned depends on
         the configuration setting `CONF.scheduler.max_attempts`.
         """
+        # 调用rpc
         return self.scheduler_rpcapi.select_destinations(context, spec_obj,
                 instance_uuids, return_objects, return_alternates)
 

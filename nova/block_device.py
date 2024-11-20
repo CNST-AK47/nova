@@ -635,19 +635,24 @@ def get_bdm_image_metadata(context, image_api, volume_api,
             continue
         elif not legacy_bdm and bdm.get('boot_index') != 0:
             continue
-
+        # 获取卷id
         volume_id = bdm.get('volume_id')
+        # 获取闪照id
         snapshot_id = bdm.get('snapshot_id')
         if snapshot_id:
             # NOTE(alaski): A volume snapshot inherits metadata from the
             # originating volume, but the API does not expose metadata
             # on the snapshot itself.  So we query the volume for it below.
+            # 查询闪照id，获取卷id
             snapshot = volume_api.get_snapshot(context, snapshot_id)
+            # 获取对应的卷ID
             volume_id = snapshot['volume_id']
 
         if bdm.get('image_id'):
             try:
+                # 查询对应的镜像Id
                 image_id = bdm['image_id']
+                # 查询对应的镜像信息
                 image_meta = image_api.get(context, image_id)
                 return image_meta
             except Exception:

@@ -238,12 +238,19 @@ class ComputeTaskManager:
     target = messaging.Target(namespace='compute_task', version='1.24')
 
     def __init__(self):
+        # compute api
         self.compute_rpcapi = compute_rpcapi.ComputeAPI()
+        # 卷管理的API
         self.volume_api = cinder.API()
+        # 镜像管理API
         self.image_api = glance.API()
+        # 网络管理API
         self.network_api = neutron.API()
+        # 服务分组的API
         self.servicegroup_api = servicegroup.API()
+        # scheduler 查询
         self.query_client = query.SchedulerQueryClient()
+        # 查询注意器
         self.notifier = rpc.get_notifier('compute')
         # Help us to record host in EventReporter
         self.host = CONF.host
@@ -621,9 +628,11 @@ class ComputeTaskManager:
 
         updates = {'vm_state': vm_states.ERROR,
                    'task_state': None}
+        # 设置实例状态为异常
         self._set_vm_state_and_notify(
             context, instance.uuid, 'build_instances', updates, exception,
             legacy_request_spec)
+        # 清除已经分配的网络
         self._cleanup_allocated_networks(
             context, instance, requested_networks)
 
@@ -739,8 +748,10 @@ class ComputeTaskManager:
             return
 
         elevated = context.elevated()
+        # 遍历host与实例集合
         for (instance, host_list) in zip(instances, host_lists):
             host = host_list.pop(0)
+            # 已经失败过一次
             if is_reschedule:
                 # If this runs in the superconductor, the first instance will
                 # already have its resources claimed in placement. If this is a
@@ -757,6 +768,7 @@ class ComputeTaskManager:
                         alloc_req = None
                     if alloc_req:
                         try:
+                            # 检查是否有足够的资源
                             host_available = scheduler_utils.claim_resources(
                                 elevated, self.report_client, spec_obj,
                                 instance.uuid, alloc_req,
@@ -766,6 +778,7 @@ class ComputeTaskManager:
                                 # provider mapping as the above claim call
                                 # moves the allocation of the instance to
                                 # another host
+                                # 返回资源列表
                                 scheduler_utils.fill_provider_mapping(
                                     request_spec, host)
                         except Exception as exc:
@@ -790,6 +803,7 @@ class ComputeTaskManager:
                            "failures for instance %(instance_uuid)s." %
                            {"instance_uuid": instance.uuid})
                     exc = exception.MaxRetriesExceeded(reason=msg)
+                    # 调度失败，执行清除操作
                     self._cleanup_when_reschedule_fails(
                         context, instance, exc, legacy_request_spec,
                         requested_networks)
@@ -884,7 +898,7 @@ class ComputeTaskManager:
                         context, instance, exc, legacy_request_spec,
                         requested_networks)
                 continue
-
+            # 构建并运行实例
             self.compute_rpcapi.build_and_run_instance(context,
                     instance=instance, host=host.service_host, image=image,
                     request_spec=local_reqspec,
@@ -935,8 +949,10 @@ class ComputeTaskManager:
 
     def _schedule_instances(self, context, request_spec,
                             instance_uuids=None, return_alternates=False):
+        # 进行调度分组
         scheduler_utils.setup_instance_group(context, request_spec)
         with timeutils.StopWatch() as timer:
+            # 查询目标母机
             host_lists = self.query_client.select_destinations(
                 context, request_spec, instance_uuids, return_objects=True,
                 return_alternates=return_alternates)
@@ -1576,14 +1592,24 @@ class ComputeTaskManager:
                 with obj_target_cell(inst, cell0):
                     inst.destroy()
 
-    def schedule_and_build_instances(self, context, build_requests,
-                                     request_specs, image,
-                                     admin_password, injected_files,
-                                     requested_networks, block_device_mapping,
+    def schedule_and_build_instances(self, 
+                                     context, 
+                                     build_requests,
+                                     request_specs, 
+                                     image,
+                                     admin_password, 
+                                     injected_files,
+                                     requested_networks, 
+                                     block_device_mapping,
                                      tags=None):
+        """
+            调度并且建设实例，核心的异步任务函数
+        """
         # Add all the UUIDs for the instances
+        # 查询所有实例uuid
         instance_uuids = [spec.instance_uuid for spec in request_specs]
         try:
+            # 进行调度，获取可使用的母机列表
             host_lists = self._schedule_instances(context, request_specs[0],
                     instance_uuids, return_alternates=True)
         except Exception as exc:
@@ -1601,15 +1627,19 @@ class ComputeTaskManager:
 
         for (build_request, request_spec, host_list) in zip(
                 build_requests, request_specs, host_lists):
+            # 查询构建请求中的instance
             instance = build_request.get_new_instance(context)
             # host_list is a list of one or more Selection objects, the first
             # of which has been selected and its resources claimed.
+            # 找到一个母机
             host = host_list[0]
             # Convert host from the scheduler into a cell record
+            # 检查是否存在缓存中
             if host.service_host not in host_mapping_cache:
                 try:
                     host_mapping = objects.HostMapping.get_by_host(
                         context, host.service_host)
+                    # 添加cache
                     host_mapping_cache[host.service_host] = host_mapping
                 except exception.HostMappingNotFound as exc:
                     LOG.error('No host-to-cell mapping found for selected '
@@ -1625,13 +1655,14 @@ class ComputeTaskManager:
                     continue
             else:
                 host_mapping = host_mapping_cache[host.service_host]
-
+            # 获取cell
             cell = host_mapping.cell_mapping
 
             # Before we create the instance, let's make one final check that
             # the build request is still around and wasn't deleted by the user
             # already.
             try:
+                # 确认构建请求一直存在，没有被撤销
                 objects.BuildRequest.get_by_instance_uuid(
                     context, instance.uuid)
             except exception.BuildRequestNotFound:
@@ -1659,6 +1690,7 @@ class ComputeTaskManager:
                             context, host.service_host))
                 instance.availability_zone = host_az[host.service_host]
                 with obj_target_cell(instance, cell):
+                    # 调用创建接口
                     instance.create()
                     instances.append(instance)
                     cell_mapping_cache[instance.uuid] = cell
@@ -1707,6 +1739,7 @@ class ComputeTaskManager:
             # allocations in the scheduler) for this instance, we may need to
             # map allocations to resource providers in the request spec.
             try:
+                # 从宿主机中查询对应资源
                 scheduler_utils.fill_provider_mapping(request_spec, host)
             except Exception as exc:
                 # If anything failed here we need to cleanup and bail out.
@@ -1726,8 +1759,10 @@ class ComputeTaskManager:
                 objects.InstanceAction.action_start(
                     cctxt, instance.uuid, instance_actions.CREATE,
                     want_result=False)
+                # 创建块设备
                 instance_bdms = self._create_block_device_mapping(
                     cell, instance.flavor, instance.uuid, block_device_mapping)
+                # 创建标签
                 instance_tags = self._create_tags(cctxt, instance.uuid, tags)
 
             # TODO(Kevin Zheng): clean this up once instance.create() handles
@@ -1737,6 +1772,7 @@ class ComputeTaskManager:
                 else objects.TagList()
 
             # Update mapping for instance.
+            # 更新实例
             self._map_instance_to_cell(context, instance, cell)
 
             if not self._delete_build_request(

@@ -156,6 +156,7 @@ class Service(service.Service):
         LOG.info('Starting %(topic)s node (version %(version)s)',
                   {'topic': self.topic, 'version': verstr})
         self.basic_config_check()
+        # 初始化主机
         self.manager.init_host()
         self.model_disconnected = False
         ctxt = context.get_admin_context()
@@ -190,7 +191,7 @@ class Service(service.Service):
         endpoints.extend(self.manager.additional_endpoints)
 
         serializer = objects_base.NovaObjectSerializer()
-
+        # 创建rpc服务
         self.rpcserver = rpc.get_server(target, endpoints, serializer)
         self.rpcserver.start()
 
@@ -345,6 +346,7 @@ class WSGIService(service.Service):
         self.topic = None
         self.manager = self._get_manager()
         self.loader = loader or api_wsgi.Loader()
+        # 加载wsgi app
         self.app = self.loader.load_app(name)
         # inherit all compute_api worker counts from osapi_compute
         if name.startswith('openstack_compute_api'):
@@ -470,6 +472,7 @@ class WSGIService(service.Service):
 
 
 def process_launcher():
+    # 使用oslo_service 加载程序
     return service.ProcessLauncher(CONF, restart_method='mutate')
 
 

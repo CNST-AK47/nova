@@ -413,18 +413,25 @@ class VIF(Model):
                  preserve_on_delete=False, delegate_create=False,
                  **kwargs):
         super(VIF, self).__init__()
-
+        # id
         self['id'] = id
+        # 地址
         self['address'] = address
+        # 网络
         self['network'] = network or None
+        # 类型
         self['type'] = type
+        # 详情
         self['details'] = details or {}
+        # 设备名称
         self['devname'] = devname
-
+        # ovs网卡id
         self['ovs_interfaceid'] = ovs_interfaceid
         self['qbh_params'] = qbh_params
         self['qbg_params'] = qbg_params
+        # 是否激活
         self['active'] = active
+        # 虚拟网卡类型
         self['vnic_type'] = vnic_type
         self['profile'] = profile
         self['preserve_on_delete'] = preserve_on_delete

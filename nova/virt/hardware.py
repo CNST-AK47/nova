@@ -1089,7 +1089,7 @@ def _get_flavor_image_meta(
     """Extract both flavor- and image-based variants of metadata."""
     flavor_key = ':'.join([prefix, key])
     image_key = '_'.join([prefix, key])
-
+    # 获取对应的策略值
     flavor_value = flavor.get('extra_specs', {}).get(flavor_key, default)
     image_value = image_meta.properties.get(image_key, default)
 
@@ -1486,6 +1486,7 @@ def get_cpu_policy_constraint(
         invalid value in image or flavor.
     :returns: The CPU policy requested.
     """
+    # 从机型配置和镜像配置中提取cpu_policy
     flavor_policy, image_policy = _get_flavor_image_meta(
         'cpu_policy', flavor, image_meta)
 
@@ -1528,7 +1529,7 @@ def get_cpu_thread_policy_constraint(
     image_meta: 'objects.ImageMeta',
 ) -> ty.Optional[str]:
     """Validate and return the requested CPU thread policy.
-
+    查询cpu线程亲和策略
     :param flavor: ``nova.objects.Flavor`` instance
     :param image_meta: ``nova.objects.ImageMeta`` instance
     :raises: exception.ImageCPUThreadPolicyForbidden if policy is defined on
@@ -1707,6 +1708,7 @@ def get_dedicated_cpu_constraint(
     :param flavor: ``nova.objects.Flavor`` instance
     :returns: The dedicated CPUs requested, else None.
     """
+    # 查询扩展地址段
     mask = flavor.get('extra_specs', {}).get('hw:cpu_dedicated_mask')
     if not mask:
         return None

@@ -861,9 +861,13 @@ class LibvirtConfigGuestCPUNUMACell(LibvirtConfigObject):
     def __init__(self, **kwargs):
         super(LibvirtConfigGuestCPUNUMACell, self).__init__(root_name="cell",
                                                             **kwargs)
+        # id 信息
         self.id = None
+        # cpu列表集合 
         self.cpus = None
+        # 内存大小
         self.memory = None
+        # 内存地址
         self.memAccess = None
 
     def parse_dom(self, xmldoc):
@@ -892,6 +896,11 @@ class LibvirtConfigGuestCPUNUMACell(LibvirtConfigObject):
 
 
 class LibvirtConfigGuestCPUNUMA(LibvirtConfigObject):
+    """
+    GUST的numa结构
+    Args:
+        LibvirtConfigObject (_type_): _description_
+    """
 
     def __init__(self, **kwargs):
         super(LibvirtConfigGuestCPUNUMA, self).__init__(root_name="numa",
@@ -2489,9 +2498,11 @@ class LibvirtConfigGuestCPUTuneVCPUSched(LibvirtConfigObject):
         super(LibvirtConfigGuestCPUTuneVCPUSched, self).__init__(
             root_name="vcpusched",
             **kwargs)
-
+        # vcpus列表
         self.vcpus = None
+        # 调度后的cpu列表
         self.scheduler = None
+        # 对应的优先级
         self.priority = None
 
     def format_dom(self):
@@ -2654,9 +2665,11 @@ class LibvirtConfigGuestNUMATuneMemNode(LibvirtConfigObject):
     def __init__(self, **kwargs):
         super(LibvirtConfigGuestNUMATuneMemNode, self).__init__(
             root_name="memnode", **kwargs)
-
+        # cellid 
         self.cellid = 0
+        # 模式为strict
         self.mode = "strict"
+        # 设置node列表
         self.nodeset = []
 
     def format_dom(self):

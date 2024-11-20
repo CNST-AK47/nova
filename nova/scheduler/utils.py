@@ -83,7 +83,7 @@ class ResourceRequest(object):
         enable_pinning_translate: bool = True
     ) -> 'ResourceRequest':
         """Create a new instance of ResourceRequest from a RequestSpec.
-
+        将实例请求，转换为标准的资源请求
         Examines the flavor, flavor extra specs, (optional) image metadata,
         and (optional) requested_resources and request_level_params of the
         provided ``request_spec``.
@@ -145,6 +145,7 @@ class ResourceRequest(object):
             image = objects.ImageMeta(properties=objects.ImageMetaProps())
 
         # Parse the flavor extra specs
+        # 将机型转换为CPU和内存资源
         res_req._process_extra_specs(request_spec.flavor)
 
         # NOTE(gibi): this assumes that _process_extra_specs() was already
@@ -183,17 +184,18 @@ class ResourceRequest(object):
 
             if disk:
                 res_req._add_resource(orc.DISK_GB, disk)
-
+        # 翻译内存加密请求
         res_req._translate_memory_encryption(request_spec.flavor, image)
-
+        # 翻译vpmems请求
         res_req._translate_vpmems_request(request_spec.flavor)
-
+        # 翻译vTPM请求,@see: https://docs.redhat.com/zh_hans/documentation/red_hat_openstack_platform/17.1/html/configuring_the_compute_service_for_instance_creation/assembly_configuring-compute-nodes-to-provide-emulated-tpm-devices-for-instances_tpm
         res_req._translate_vtpm_request(request_spec.flavor, image)
-
+        # 设置cpi numa 亲和策略
         res_req._translate_pci_numa_affinity_policy(request_spec.flavor, image)
-
+        # 设置是否设置UEFI安全启动
+        # @see: https://www.cnblogs.com/larry1024/p/17645208.html
         res_req._translate_secure_boot_request(request_spec.flavor, image)
-
+        # 跳过一些空值
         res_req.strip_zeros()
 
         return res_req
@@ -321,7 +323,12 @@ class ResourceRequest(object):
                       resource_class, amount)
 
     def _translate_pinning_policies(self, flavor, image):
-        """Translate the legacy pinning policies to resource requests."""
+        """Translate the legacy pinning policies to resource requests.
+        翻译绑核策略请求
+        :raises: FlavorImageConflict
+        :raises: InvalidCpuPinningPolicy
+        
+        """
         # NOTE(stephenfin): These can raise exceptions but these have already
         # been validated by 'nova.virt.hardware.numa_get_constraints' in the
         # API layer (see change I06fad233006c7bab14749a51ffa226c3801f951b).
@@ -329,10 +336,13 @@ class ResourceRequest(object):
         # requests and implicit 'hw:cpu_policy'-based requests, mismatches
         # between the number of CPUs in the flavor and explicit VCPU/PCPU
         # requests, etc.
+        # 获取cpu约束策略--绑核/共享/混合
         cpu_policy = hardware.get_cpu_policy_constraint(
             flavor, image)
+        # 获取cpu 超线程策略--优先/必须/隔离
         cpu_thread_policy = hardware.get_cpu_thread_policy_constraint(
             flavor, image)
+        # 获取线程仿真策略--共享/隔离
         emul_thread_policy = hardware.get_emulator_thread_policy_constraint(
             flavor)
 
@@ -349,13 +359,15 @@ class ResourceRequest(object):
                       '%(vcpu_rc)s=0,%(pcpu_rc)s=%(pcpus)d',
                       {'vcpu_rc': orc.VCPU, 'pcpu_rc': orc.PCPU,
                        'pcpus': pcpus})
-
+        # 使用混合策略，需要计算出vcpus和pcpus
         if cpu_policy == obj_fields.CPUAllocationPolicy.MIXED:
             # Get dedicated CPU list from flavor extra spec. For a mixed
             # instance a non-empty 'hw:cpu_dedicated_mask' or realtime CPU
             # mask configuration must exist, which is already ensured in
             # the API layer.
+            # 查询需要绑核的CPU
             dedicated_cpus = hardware.get_dedicated_cpu_constraint(flavor)
+            # 查询需要浮动的CPU列表
             realtime_cpus = hardware.get_realtime_cpu_constraint(flavor, image)
 
             pcpus = len(dedicated_cpus or realtime_cpus or [])
@@ -387,6 +399,7 @@ class ResourceRequest(object):
             self._add_trait(os_traits.HW_CPU_HYPERTHREADING, trait)
 
     def _translate_pci_numa_affinity_policy(self, flavor, image):
+        # 查询需要的NUMA策略
         policy = hardware.get_pci_numa_policy_constraint(flavor, image)
         # only the socket policy supports a trait
         if policy == objects.fields.PCINUMAAffinityPolicy.SOCKET:
@@ -461,7 +474,7 @@ class ResourceRequest(object):
 
     def _add_resource(self, rclass, amount, group=None):
         """Add resource request to specified request group.
-
+        添加资源类型
         Defaults to the unsuffixed request group if no group is provided.
         """
         self.get_request_group(group).add_resource(rclass, amount)
@@ -641,6 +654,7 @@ def resources_from_request_spec(ctxt, spec_obj, host_manager,
         enable_pinning_translate=True):
     """Given a RequestSpec object, returns a ResourceRequest of the resources,
     traits, and aggregates it represents.
+    将实例请求，转换为资源请求。
 
     :param context: The request context.
     :param spec_obj: A RequestSpec object.
@@ -651,6 +665,7 @@ def resources_from_request_spec(ctxt, spec_obj, host_manager,
     :return: A ResourceRequest object.
     :raises NoValidHost: If the specified host/node is not found in the DB.
     """
+    # 获取资源请求
     res_req = ResourceRequest.from_request_spec(
         spec_obj, enable_pinning_translate)
 
@@ -662,10 +677,13 @@ def resources_from_request_spec(ctxt, spec_obj, host_manager,
     if 'requested_destination' in spec_obj:
         destination = spec_obj.requested_destination
         if destination:
+            # 获取其，指定的host
             if 'host' in destination:
                 target_host = destination.host
+            # 获取其，指定的node
             if 'node' in destination:
                 target_node = destination.node
+            # 获取其，指定的cell
             if 'cell' in destination:
                 target_cell = destination.cell
             if destination.aggregates:
@@ -685,12 +703,14 @@ def resources_from_request_spec(ctxt, spec_obj, host_manager,
         # Prioritize the value from requested_destination just in case
         # so that we don't inadvertently overwrite it to the old value
         # of force_hosts persisted in the DB
+        # 是否强制指定host
         target_host = target_host or spec_obj.force_hosts[0]
 
     if 'force_nodes' in spec_obj and spec_obj.force_nodes:
         # Prioritize the value from requested_destination just in case
         # so that we don't inadvertently overwrite it to the old value
         # of force_nodes persisted in the DB
+        # 是否强制指定node
         target_node = target_node or spec_obj.force_nodes[0]
 
     if target_host or target_node:
@@ -1144,6 +1164,12 @@ def _get_group_details(context, instance_uuid, user_group_hosts=None):
 
 
 def _get_instance_group_hosts_all_cells(context, instance_group):
+    """
+    从所有的cell中获取实例分组的host列表
+    Args:
+        context (_type_): _description_
+        instance_group (_type_): _description_
+    """
     def get_hosts_in_cell(cell_context):
         # NOTE(melwitt): The obj_alternate_context is going to mutate the
         # cell_instance_group._context and to do this in a scatter-gather
@@ -1177,6 +1203,7 @@ def setup_instance_group(context, request_spec):
     # relying on a lazy-load via the 'hosts' field of the InstanceGroup object.
     if (request_spec.instance_group and
             'hosts' not in request_spec.instance_group):
+        # 查询实例分组
         group = request_spec.instance_group
         # If the context is already targeted to a cell (during a move
         # operation), we don't need to scatter-gather. We do need to use
@@ -1201,10 +1228,14 @@ def setup_instance_group(context, request_spec):
     # This queries the group details for the group where the instance is a
     # member. The group_hosts passed in are the hosts that contain members of
     # the requested instance group.
+    # 查询对应分组
     group_info = _get_group_details(context, instance_uuid, group_hosts)
     if group_info is not None:
+        # 查询对应分组的宿主机--这里就已经开始进行了初步筛除
         request_spec.instance_group.hosts = list(group_info.hosts)
+        # 查询对应分组的规则
         request_spec.instance_group.policy = group_info.policy
+        # 查询对应的分组成员
         request_spec.instance_group.members = group_info.members
 
 

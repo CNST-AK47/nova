@@ -256,6 +256,9 @@ class VMOps(object):
     @check_admin_permissions
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password, network_info, block_device_info=None):
+        """
+            创建以一个vm
+        """
         """Create a new VM and start it."""
         LOG.info("Spawning new instance", instance=instance)
 

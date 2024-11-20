@@ -92,6 +92,11 @@ INVALID_FLAVOR_IMAGE_EXCEPTIONS = (
 
 class ServersController(wsgi.Controller):
     """The Server API base controller class for the OpenStack API."""
+    """
+    核心的相关api
+    Returns:
+        _type_: _description_
+    """
 
     _view_builder_class = views_servers.ViewBuilder
 
@@ -544,11 +549,13 @@ class ServersController(wsgi.Controller):
         requested_networks = server_dict.get('networks', None)
 
         if requested_networks is not None:
+            # 查询对应网络
             requested_networks = self._get_requested_networks(
                 requested_networks)
 
         # Skip policy check for 'create:attach_network' if there is no
         # network allocation request.
+        # 检查是否拥有网卡创建的权限
         if requested_networks and len(requested_networks) and \
                 not requested_networks.no_allocate:
             context.can(server_policies.SERVERS % 'create:attach_network',
@@ -679,10 +686,14 @@ class ServersController(wsgi.Controller):
     @validation.schema(schema_servers.create_v274, '2.74', '2.89')
     @validation.schema(schema_servers.create_v290, '2.90')
     def create(self, req, body):
+        """ 核心的创建实例接口 """
         """Creates a new server for a given user."""
         context = req.environ['nova.context']
+        # 服务器集合
         server_dict = body['server']
+        # 查询请求中的密码设置
         password = self._get_server_admin_password(server_dict)
+        # 查询请求中的名称设置
         name = common.normalize_name(server_dict['name'])
         description = name
         if api_version_request.is_supported(req, min_version='2.19'):
@@ -692,6 +703,7 @@ class ServersController(wsgi.Controller):
             hostname = server_dict.get('hostname')
 
         # Arguments to be passed to instance create function
+        # 创建实例需要的rpc参数
         create_kwargs = {}
 
         create_kwargs['user_data'] = server_dict.get('user_data')
@@ -701,13 +713,15 @@ class ServersController(wsgi.Controller):
         # leading/trailing spaces by legacy v2 API.
         create_kwargs['key_name'] = server_dict.get('key_name')
         create_kwargs['config_drive'] = server_dict.get('config_drive')
+        # 获取对应安全组
         security_groups = server_dict.get('security_groups')
+        # 设置对应安全组信息
         if security_groups is not None:
             create_kwargs['security_groups'] = [
                 sg['name'] for sg in security_groups if sg.get('name')]
             create_kwargs['security_groups'] = list(
                 set(create_kwargs['security_groups']))
-
+        # 查询特殊的调度参数
         scheduler_hints = {}
         if 'os:scheduler_hints' in body:
             scheduler_hints = body['os:scheduler_hints']
@@ -719,6 +733,7 @@ class ServersController(wsgi.Controller):
         # in as strings.  Verify that they are valid integers and > 0.
         # Also, we want to default 'min_count' to 1, and default
         # 'max_count' to be 'min_count'.
+        # 设置最大与最小数量
         min_count = int(server_dict.get('min_count', 1))
         max_count = int(server_dict.get('max_count', min_count))
         if min_count > max_count:
@@ -726,7 +741,7 @@ class ServersController(wsgi.Controller):
             raise exc.HTTPBadRequest(explanation=msg)
         create_kwargs['min_count'] = min_count
         create_kwargs['max_count'] = max_count
-
+        # 获取可用域
         availability_zone = server_dict.pop("availability_zone", None)
 
         if api_version_request.is_supported(req, min_version='2.52'):
@@ -734,7 +749,7 @@ class ServersController(wsgi.Controller):
 
         helpers.translate_attributes(helpers.CREATE,
                                      server_dict, create_kwargs)
-
+        # 获取项目母机
         target = {
             'project_id': context.project_id,
             'user_id': context.user_id,
@@ -750,6 +765,7 @@ class ServersController(wsgi.Controller):
                         target=target)
 
         parse_az = self.compute_api.parse_availability_zone
+        # 查询可用域下的所有母机
         try:
             availability_zone, host, node = parse_az(context,
                                                      availability_zone)
@@ -760,19 +776,19 @@ class ServersController(wsgi.Controller):
                         target=target)
             availability_zone = self._validate_host_availability_zone(
                 context, availability_zone, host)
-
+        # 进行请求信息预处理
         if api_version_request.is_supported(req, min_version='2.74'):
             self._process_hosts_for_create(context, target, server_dict,
                                            create_kwargs, host, node)
-
+        
         self._process_bdms_for_create(
             context, target, server_dict, create_kwargs)
-
+        # 查询镜像信息
         image_uuid = self._image_from_req_data(server_dict, create_kwargs)
-
+        # 预处理网络信息
         self._process_networks_for_create(
             context, target, server_dict, create_kwargs)
-
+        # 获取机型信息
         flavor_id = self._flavor_id_from_req_data(body)
         try:
             flavor = flavors.get_flavor_by_flavor_id(
@@ -781,6 +797,7 @@ class ServersController(wsgi.Controller):
             supports_multiattach = common.supports_multiattach_volume(req)
             supports_port_resource_request = \
                 common.supports_port_resource_request(req)
+            # rpc调用compute 创建实例
             instances, resv_id = self.compute_api.create(
                 context,
                 flavor,
@@ -876,14 +893,14 @@ class ServersController(wsgi.Controller):
         # If the caller wanted a reservation_id, return it
         if server_dict.get('return_reservation_id', False):
             return wsgi.ResponseObject({'reservation_id': resv_id})
-
+        # 返回创建服务器信息
         server = self._view_builder.create(req, instances[0])
 
         if CONF.api.enable_instance_password:
             server['server']['adminPass'] = password
 
         robj = wsgi.ResponseObject(server)
-
+        # 添加url信息
         return self._add_location(robj)
 
     def _delete(self, context, req, instance_uuid):

@@ -66,6 +66,18 @@ class BaseFilterHandler(loadables.BaseLoader):
     """
 
     def get_filtered_objects(self, filters, objs, spec_obj, index=0):
+        """
+        获取过滤器对象列表
+
+        Args:
+            filters (_type_): _description_
+            objs (_type_): _description_
+            spec_obj (_type_): _description_
+            index (int, optional): _description_. Defaults to 0.
+
+        Returns:
+            _type_: _description_
+        """
         list_objs = list(objs)
         LOG.debug("Starting with %d host(s)", len(list_objs))
         # Track the hosts as they are removed. The 'full_filter_results' list
@@ -82,6 +94,7 @@ class BaseFilterHandler(loadables.BaseLoader):
             if filter_.run_filter_for_index(index):
                 cls_name = filter_.__class__.__name__
                 start_count = len(list_objs)
+                # 进行对象过滤
                 objs = filter_.filter_all(list_objs, spec_obj)
                 if objs is None:
                     LOG.debug("Filter %s says to stop filtering", cls_name)

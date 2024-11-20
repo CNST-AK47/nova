@@ -94,7 +94,7 @@ def isolate_aggregates(ctxt, request_spec):
 @trace_request_filter
 def require_tenant_aggregate(ctxt, request_spec):
     """Require hosts in an aggregate based on tenant id.
-
+    检查是否需要进行租户id过滤
     This will modify request_spec to request hosts in an aggregate
     defined specifically for the tenant making the request. We do that
     by looking for a nova host aggregate with metadata indicating which
@@ -104,11 +104,13 @@ def require_tenant_aggregate(ctxt, request_spec):
 
     enabled = CONF.scheduler.limit_tenants_to_placement_aggregate
     agg_required = CONF.scheduler.placement_aggregate_required_for_tenants
+    # 如果没有开启租户过滤，直接返回
     if not enabled:
         return False
-
+    # 查询项目下的资源集合
     aggregates = objects.AggregateList.get_by_metadata(
         ctxt, value=request_spec.project_id)
+    # 统计uuids 
     aggregate_uuids_for_tenant = set([])
     for agg in aggregates:
         for key, value in agg.metadata.items():
@@ -141,6 +143,7 @@ def map_az_to_placement_aggregate(ctxt, request_spec):
 
     This will modify request_spec to request hosts in an aggregate that
     matches the desired AZ of the user's request.
+    将zone 转换为placement的aggregate
     """
     if not CONF.scheduler.query_placement_for_availability_zone:
         return False
@@ -172,6 +175,7 @@ def require_image_type_support(ctxt, request_spec):
 
     This will modify the request_spec to request hosts that support the
     disk_format of the image provided.
+    转换为磁盘类型的trait
     """
     if not CONF.scheduler.query_placement_for_image_type_support:
         return False
@@ -188,7 +192,7 @@ def require_image_type_support(ctxt, request_spec):
             'Computed trait name %r is not valid; is os-traits up to date?',
             trait_name)
         return False
-
+    # 添加磁盘类型
     request_spec.root_required.add(trait_name)
 
     LOG.debug('require_image_type_support request filter added required '
@@ -249,6 +253,7 @@ def compute_status_filter(ctxt, request_spec):
     disabled. Compute node resource providers managed by a disabled compute
     service should have the COMPUTE_STATUS_DISABLED trait set and be excluded
     by this mandatory pre-filter.
+    添加计算节点状态过滤，不允许计算节点状态为禁用的节点
     """
     trait_name = os_traits.COMPUTE_STATUS_DISABLED
     request_spec.root_forbidden.add(trait_name)
@@ -260,7 +265,7 @@ def compute_status_filter(ctxt, request_spec):
 @trace_request_filter
 def accelerators_filter(ctxt, request_spec):
     """Allow only compute nodes with accelerator support.
-
+    设置设备亲和性
     This filter retains only nodes whose compute manager published the
     COMPUTE_ACCELERATORS trait, thus indicating the version of n-cpu is
     sufficient to handle accelerator requests.
@@ -282,7 +287,7 @@ def routed_networks_filter(
 
     This will modify request_spec to request hosts in aggregates that
     matches segment IDs related to requested networks.
-
+    添加网络路由表过滤
     :param ctxt: The usual suspect for a context object.
     :param request_spec: a classic RequestSpec object containing the request.
     :returns: True if the filter was used or False if not.
@@ -301,6 +306,7 @@ def routed_networks_filter(
         return True
 
     # This object field is not nullable
+    # 获取要求的网络信息
     requested_networks = request_spec.requested_networks
 
     # NOTE(sbauza): This field could be not created yet.
@@ -319,6 +325,7 @@ def routed_networks_filter(
         # Check for a specifically requested network ID.
         if "port_id" in requested_network and requested_network.port_id:
             # We have to lookup the port to see which segment(s) to support.
+            # 根据端口id获取网络信息
             port = network_api.show_port(ctxt, requested_network.port_id)[
                 "port"
             ]
@@ -374,7 +381,7 @@ def remote_managed_ports_filter(
     request_spec: 'objects.RequestSpec',
 ) -> bool:
     """Filter out hosts without remote managed port support (driver or hw).
-
+    设置远程管理驱动过滤
     If a request spec contains VNIC_TYPE_REMOTE_MANAGED ports then a
     remote-managed port trait (COMPUTE_REMOTE_MANAGED_PORTS) is added to
     the request in order to pre-filter hosts that do not use compute
@@ -446,7 +453,7 @@ ALL_REQUEST_FILTERS = [
 
 def process_reqspec(ctxt, request_spec):
     """Process an objects.ReqestSpec before calling placement.
-
+    提前处理request_spec，在进行调度之前，完成基础的参数校验与配置
     :param ctxt: A RequestContext
     :param request_spec: An objects.RequestSpec to be inspected/modified
     """

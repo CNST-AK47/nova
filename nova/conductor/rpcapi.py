@@ -411,6 +411,8 @@ class ComputeTaskAPI(object):
             del kw['tags']
 
         cctxt = self.client.prepare(version=version)
+        # 这里的cast是异步的，所以没有返回值
+        # 调用的是manager中的函数
         cctxt.cast(context, 'schedule_and_build_instances', **kw)
 
     def unshelve_instance(self, context, instance, request_spec=None):

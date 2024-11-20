@@ -162,6 +162,7 @@ class Guest(object):
         """
         flags = pause and libvirt.VIR_DOMAIN_START_PAUSED or 0
         try:
+            # libvirt-python 創建
             return self._domain.createWithFlags(flags)
         except Exception:
             with excutils.save_and_reraise_exception():

@@ -128,7 +128,8 @@ class SchedulerAPI(object):
         serializer = objects_base.NovaObjectSerializer()
         self.client = rpc.get_client(target, version_cap=version_cap,
                                      serializer=serializer)
-
+    # 查询目标宿主机
+    # 这里是其中的核心函数
     def select_destinations(self, ctxt, spec_obj, instance_uuids,
             return_objects=False, return_alternates=False):
         # Modify the parameters if an older version is requested
@@ -157,6 +158,7 @@ class SchedulerAPI(object):
         cctxt = self.client.prepare(
             version=version, call_monitor_timeout=CONF.rpc_response_timeout,
             timeout=CONF.long_rpc_timeout)
+        # 同步调用manager的select_destinations rpc
         return cctxt.call(ctxt, 'select_destinations', **msg_args)
 
     def update_aggregates(self, ctxt, aggregates):
